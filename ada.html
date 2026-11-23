@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord | Sistema Completo com Categorias e Compartilhamento de Tela</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        discord: {
+                            guildBg: '#1e1f22',
+                            channelBg: '#2b2d31',
+                            chatBg: '#313338',
+                            userPanel: '#232428',
+                            hover: '#35373c',
+                            active: '#404249',
+                            input: '#383a40',
+                            blurple: '#5865f2',
+                            blurpleHover: '#4752c4',
+                            green: '#23a55a',
+                            red: '#f23f43',
+                            textMuted: '#949ba4',
+                            textNormal: '#dbdee1',
+                            textHeader: '#f2f3f5',
+                            divider: '#3f4147'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        input, textarea, select { user-select: text; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #2b2d31; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #111214; }
+        .guild-pill { transition: height 0.2s ease, opacity 0.2s ease; }
+        .guild-item:hover .guild-pill { height: 20px; opacity: 1; }
+        .guild-item.active .guild-pill { height: 40px !important; opacity: 1 !important; }
+        .guild-icon { border-radius: 50%; transition: border-radius 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease; }
+        .guild-item:hover .guild-icon, .guild-item.active .guild-icon { border-radius: 16px; }
+        .speaking-ring { box-shadow: 0 0 0 4px #23a55a, 0 0 20px rgba(35, 165, 90, 0.6); }
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.94); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-modal { animation: modalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .avatar-hover-trigger:hover .avatar-hover-overlay { opacity: 1 !important; }
+        .banner-hover-trigger:hover .banner-hover-overlay { opacity: 1 !important; }
+    </style>
+</head>
+<body class="bg-discord-chatBg text-discord-textNormal font-sans h-screen w-screen overflow-hidden flex antialiased">
+
+    <!-- TELA DE AUTENTICAÇÃO (LOGIN / REGISTRO) -->
+    <div id="auth-screen" class="fixed inset-0 bg-[#313338] z-50 flex items-center justify-center p-4">
+        
+        <!-- FORMULÁRIO DE LOGIN -->
+        <div id="login-container" class="bg-[#313338] md:bg-[#1e1f22] w-full max-w-[480px] p-8 rounded-2xl shadow-2xl flex flex-col items-center border border-discord-divider/20">
+            <h2 class="text-2xl font-bold text-discord-textHeader mb-2 text-center">Boas-vindas de volta!</h2>
+            <p class="text-sm text-discord-textMuted mb-6 text-center">Estamos muito animados para te ver de novo!</p>
+            
+            <form onsubmit="handleLogin(event)" class="w-full space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">E-mail ou Nome de Usuário</label>
+                    <input id="login-email" type="text" required class="w-full bg-[#1e1f22] md:bg-[#313338] text-discord-textHeader px-3 py-2.5 rounded-md text-sm border border-black/20 focus:outline-none focus:border-discord-blurple">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">Senha</label>
+                    <input id="login-password" type="password" required class="w-full bg-[#1e1f22] md:bg-[#313338] text-discord-textHeader px-3 py-2.5 rounded-md text-sm border border-black/20 focus:outline-none focus:border-discord-blurple">
+                </div>
+                <button type="submit" class="w-full bg-discord-blurple hover:bg-discord-blurpleHover text-white text-sm font-medium py-3 rounded-md transition-colors shadow-lg">Entrar</button>
+            </form>
+            <div class="mt-4 text-xs text-discord-textMuted flex items-center gap-1">
+                <span>Precisando de uma conta?</span>
+                <span onclick="switchAuthView('register')" class="text-discord-blurple hover:underline cursor-pointer font-semibold">Registrar-se</span>
+            </div>
+        </div>
+
+        <!-- FORMULÁRIO DE REGISTRO -->
+        <div id="register-container" class="hidden bg-[#313338] md:bg-[#1e1f22] w-full max-w-[480px] p-8 rounded-2xl shadow-2xl flex flex-col items-center border border-discord-divider/20">
+            <h2 class="text-2xl font-bold text-discord-textHeader mb-2 text-center">Criar uma conta</h2>
+            <p class="text-sm text-discord-textMuted mb-6 text-center">Crie seu perfil para começar a conversar!</p>
+            
+            <form onsubmit="handleRegister(event)" class="w-full space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">E-mail</label>
+                    <input id="reg-email" type="email" required class="w-full bg-[#1e1f22] md:bg-[#313338] text-discord-textHeader px-3 py-2.5 rounded-md text-sm border border-black/20 focus:outline-none focus:border-discord-blurple" placeholder="seuemail@exemplo.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">Nome de Usuário</label>
+                    <input id="reg-username" type="text" required class="w-full bg-[#1e1f22] md:bg-[#313338] text-discord-textHeader px-3 py-2.5 rounded-md text-sm border border-black/20 focus:outline-none focus:border-discord-blurple" placeholder="ex: novousuario">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">Senha</label>
+                    <input id="reg-password" type="password" required class="w-full bg-[#1e1f22] md:bg-[#313338] text-discord-textHeader px-3 py-2.5 rounded-md text-sm border border-black/20 focus:outline-none focus:border-discord-blurple">
+                </div>
+                <button type="submit" class="w-full bg-discord-blurple hover:bg-discord-blurpleHover text-white text-sm font-medium py-3 rounded-md transition-colors shadow-lg">Continuar</button>
+            </form>
+            <div class="mt-4 text-xs text-discord-textMuted flex items-center gap-1">
+                <span onclick="switchAuthView('login')" class="text-discord-blurple hover:underline cursor-pointer font-semibold">Já tem uma conta?</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- INPUTS DE ARQUIVO OCULTOS -->
+    <input type="file" id="global-avatar-input" accept="image/*" class="hidden" onchange="handleGlobalAvatarUpload(event)">
+    <input type="file" id="global-banner-input" accept="image/*" class="hidden" onchange="handleGlobalBannerUpload(event)">
+
+    <!-- 1. BARRA LATERAL DE SERVIDORES -->
+    <nav class="w-[72px] bg-discord-guildBg flex flex-col items-center py-3 shrink-0 z-20 overflow-y-auto no-scrollbar" aria-label="Servidores">
+        <div id="home-btn" onclick="selectHome()" class="guild-item active relative w-full flex items-center justify-center mb-2 cursor-pointer group">
+            <div class="guild-pill absolute left-0 w-1 bg-white rounded-r-full h-0 opacity-0"></div>
+            <div class="guild-icon w-12 h-12 bg-discord-blurple text-white flex items-center justify-center shadow-md group-hover:bg-discord-blurple">
+                <svg class="w-7 h-7" viewBox="0 0 127.14 96.36" fill="currentColor">
+                    <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+                </svg>
+            </div>
+            <div class="fixed left-[78px] bg-[#111214] text-discord-textHeader text-xs font-semibold px-3 py-2 rounded-md shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                Mensagens Diretas & Amigos
+            </div>
+        </div>
+
+        <div class="w-8 h-[2px] bg-discord-divider rounded-full my-1"></div>
+        <div id="servers-list" class="w-full flex flex-col items-center gap-2 my-1"></div>
+
+        <div onclick="openCreateServerModal()" class="guild-item relative w-full flex items-center justify-center mt-1 cursor-pointer group">
+            <div class="guild-icon w-12 h-12 bg-discord-chatBg text-discord-green group-hover:bg-discord-green group-hover:text-white flex items-center justify-center transition-all duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+            </div>
+            <div class="fixed left-[78px] bg-[#111214] text-discord-textHeader text-xs font-semibold px-3 py-2 rounded-md shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
+                Adicionar um Servidor
+            </div>
+        </div>
+    </nav>
+
+    <!-- 2. BARRA LATERAL DE CANAIS E DMs -->
+    <aside class="w-60 bg-discord-channelBg flex flex-col shrink-0 z-10 border-r border-black/10">
+        <header id="sidebar-header" class="h-12 px-4 flex items-center justify-between border-b border-[#1f2023] shadow-sm cursor-pointer hover:bg-discord-hover/50 transition-colors">
+            <h1 id="sidebar-title" class="font-bold text-discord-textHeader text-[15px] truncate">Início</h1>
+            <div id="sidebar-header-actions" class="hidden flex items-center gap-1">
+                <button onclick="openCreateChannelModal()" title="Criar Canal" class="text-discord-textMuted hover:text-discord-textHeader p-1 rounded">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div id="sidebar-content" class="flex-1 overflow-y-auto px-2 py-3 space-y-4"></div>
+
+        <!-- PAINEL DE STATUS DE VOZ CONECTADA -->
+        <div id="voice-status-panel" class="hidden bg-discord-userPanel border-b border-discord-divider/60 px-2.5 py-2">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="text-discord-green shrink-0 animate-pulse">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 3C7.03 3 3 7.03 3 12v5a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H5v-1a7 7 0 0 1 14 0v1h-2a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1a3 3 0 0 0 3-3v-5c0-4.97-4.03-9-9-9z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-discord-green leading-tight truncate">Voz Conectada</div>
+                        <div id="voice-connected-channel-name" class="text-[11px] text-discord-textMuted truncate">Canal de Voz</div>
+                    </div>
+                </div>
+                <button onclick="leaveVoiceChannel()" title="Desconectar" class="p-1.5 rounded hover:bg-discord-hover text-discord-textNormal hover:text-discord-red transition-colors shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 3.75L18 6m0 0l2.25 2.25M18 6l-2.25-2.25M18 6l-2.25 2.25m1.5 13.5c-8.284 0-15-6.716-15-15V4.5A2.25 2.25 0 014.5 2.25h1.372c.516 0 .966.351 1.091.852l1.106 4.423c.11.44-.054.902-.417 1.173l-1.293.97a1.062 1.062 0 00-.38 1.21 12.035 12.035 0 007.143 7.143c.441.162.928-.004 1.21-.38l.97-1.293a1.125 1.125 0 011.173-.417l4.423 1.106c.5.125.852.575.852 1.091V19.5a2.25 2.25 0 01-2.25 2.25h-2.25z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- BARRA DO USUÁRIO INFERIOR -->
+        <div class="h-[52px] bg-discord-userPanel px-2 flex items-center justify-between shrink-0">
+            <div onclick="openUserProfileModal()" class="flex items-center gap-2 p-1 rounded hover:bg-discord-hover cursor-pointer min-w-0 flex-1 mr-1 transition-colors" title="Ver Meu Perfil">
+                <div class="relative shrink-0 avatar-hover-trigger group/avatar" onclick="event.stopPropagation(); triggerAvatarUpload();" title="Clique para alterar a foto">
+                    <div id="user-avatar-sidebar" class="w-8 h-8 rounded-full bg-discord-green flex items-center justify-center text-white font-bold text-sm overflow-hidden transition-all relative">
+                        S
+                    </div>
+                    <div class="avatar-hover-overlay absolute inset-0 bg-black/60 rounded-full opacity-0 transition-opacity flex items-center justify-center text-white">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                        </svg>
+                    </div>
+                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-discord-green border-2 border-discord-userPanel rounded-full"></span>
+                </div>
+
+                <div class="min-w-0 leading-tight flex-1">
+                    <div id="user-name-sidebar" class="text-sm font-semibold text-discord-textHeader truncate">Usuário</div>
+                    <div id="user-status-text" class="text-[11px] text-discord-textMuted truncate">Online</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-0.5 shrink-0">
+                <button id="btn-mute" onclick="toggleMute()" title="Silenciar Microfone" class="w-8 h-8 rounded hover:bg-discord-hover flex items-center justify-center text-discord-textNormal transition-colors relative">
+                    <svg id="icon-mic-on" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+                    </svg>
+                    <svg id="icon-mic-off" class="w-5 h-5 text-discord-red hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>
+                    </svg>
+                </button>
+
+                <button id="btn-deafen" onclick="toggleDeafen()" title="Desativar Áudio" class="w-8 h-8 rounded hover:bg-discord-hover flex items-center justify-center text-discord-textNormal transition-colors relative">
+                    <svg id="icon-deafen-off" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3a9 9 0 0 0-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7a9 9 0 0 0-9-9z"/>
+                    </svg>
+                    <svg id="icon-deafen-on" class="w-5 h-5 text-discord-red hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3a9 9 0 0 0-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7a9 9 0 0 0-9-9z"/>
+                        <line x1="3" y1="3" x2="21" y2="21" stroke="#f23f43" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+
+                <button onclick="openEditProfileModal()" title="Configurações" class="w-8 h-8 rounded hover:bg-discord-hover flex items-center justify-center text-discord-textNormal transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6-3.6z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 3. ÁREA PRINCIPAL -->
+    <main class="flex-1 bg-discord-chatBg flex flex-col min-w-0 relative">
+        <header id="main-header" class="h-12 px-4 flex items-center justify-between border-b border-[#1f2023] shadow-sm shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <span id="main-header-icon" class="text-discord-textMuted"></span>
+                <h2 id="main-header-title" class="font-bold text-discord-textHeader text-[15px] truncate">Amigos</h2>
+                <span id="main-header-topic" class="hidden md:inline-block text-xs text-discord-textMuted border-l border-discord-divider pl-3 ml-1 truncate"></span>
+            </div>
+
+            <!-- CONTROLES DO CABEÇALHO PARA NAVEGAÇÃO DE AMIGOS -->
+            <div id="friends-header-nav" class="flex items-center gap-2 text-sm font-medium">
+                <button onclick="setFriendsTab('online')" id="tab-friends-online" class="px-2 py-1 rounded hover:bg-discord-hover text-discord-textHeader bg-discord-active">Online</button>
+                <button onclick="setFriendsTab('all')" id="tab-friends-all" class="px-2 py-1 rounded hover:bg-discord-hover text-discord-textMuted">Todos</button>
+                <button onclick="setFriendsTab('add')" id="tab-friends-add" class="px-2.5 py-1 rounded bg-discord-green text-white font-semibold hover:bg-emerald-600 transition-colors">Adicionar Amigo</button>
+            </div>
+
+            <!-- BOTÕES PARA CALL PRIVADA DENTRO DA DM -->
+            <div id="dm-header-actions" class="hidden flex items-center gap-3">
+                <button onclick="startPrivateCall()" title="Iniciar Chamada de Voz" class="p-1.5 text-discord-textMuted hover:text-discord-green rounded hover:bg-discord-hover transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 15.5c-1.25 0-2.45-.2-3.57-.57a1.02 1.02 0 0 0-1.02.24l-2.2 2.2a15.045 15.045 0 0 1-6.59-6.59l2.2-2.21a.96.96 0 0 0 .25-1A11.36 11.36 0 0 1 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- VIEW 1: CENTRAL DE AMIGOS -->
+        <div id="view-friends-center" class="flex-1 flex flex-col p-6 overflow-y-auto">
+            <div id="section-add-friend" class="hidden mb-6 bg-[#2b2d31] p-5 rounded-xl border border-discord-divider/50">
+                <h3 class="text-sm font-bold text-discord-textHeader uppercase tracking-wider mb-1">Adicionar Amigo</h3>
+                <p class="text-xs text-discord-textMuted mb-3">Você pode adicionar amigos através do ID único ou nome de usuário exato.</p>
+                <form onsubmit="handleAddFriendSubmit(event)" class="flex gap-3">
+                    <input id="input-add-friend-name" type="text" placeholder="Digite o ID único ou Nome de Usuário (ex: U123456)" class="flex-1 bg-[#1e1f22] text-discord-textHeader text-sm px-4 py-2.5 rounded-lg border border-black/30 focus:outline-none focus:border-discord-blurple">
+                    <button type="submit" class="bg-discord-blurple hover:bg-discord-blurpleHover text-white text-xs font-semibold px-5 py-2.5 rounded-lg">Enviar pedido</button>
+                </form>
+            </div>
+            <div class="mb-3 text-xs font-bold text-discord-textMuted uppercase tracking-wider" id="friends-list-header">AMIGOS — 0</div>
+            <div id="friends-list-container" class="space-y-1"></div>
+        </div>
+
+        <!-- VIEW 2: MENSAGEM DIRETA -->
+        <div id="view-dm-chat" class="hidden flex-1 flex flex-col min-h-0">
+            <div id="dm-messages-container" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+            <div class="px-4 pb-6 pt-1 shrink-0">
+                <form onsubmit="sendDirectMessage(event)" class="bg-discord-input rounded-lg px-4 py-2.5 flex items-center gap-3">
+                    <input id="dm-message-input" type="text" autocomplete="off" placeholder="Conversar em privado" class="bg-transparent flex-1 text-discord-textNormal placeholder-discord-textMuted text-sm focus:outline-none">
+                    <button type="submit" class="text-discord-textMuted hover:text-discord-blurple"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                </form>
+            </div>
+        </div>
+
+        <!-- VIEW 3: CANAL DE TEXTO -->
+        <div id="view-text-channel" class="hidden flex-1 flex flex-col min-h-0">
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+            <div class="px-4 pb-6 pt-1 shrink-0">
+                <form onsubmit="sendMessage(event)" class="bg-discord-input rounded-lg px-4 py-2.5 flex items-center gap-3">
+                    <input id="message-input" type="text" autocomplete="off" placeholder="Conversar no canal" class="bg-transparent flex-1 text-discord-textNormal placeholder-discord-textMuted text-sm focus:outline-none">
+                    <button type="submit" class="text-discord-textMuted hover:text-discord-blurple"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                </form>
+            </div>
+        </div>
+
+        <!-- VIEW 4: CANAL DE VOZ (CALL / CALL PV COM COMPARTILHAMENTO DE TELA GRANDE) -->
+        <div id="view-voice-channel" class="hidden flex-1 flex flex-col bg-[#111214] min-h-0">
+            <div id="voice-grid" class="flex-1 p-4 flex items-center justify-center overflow-hidden"></div>
+            
+            <div class="h-20 bg-[#1e1f22] border-t border-black/30 flex items-center justify-center gap-4 shrink-0">
+                <!-- Botão Silenciar Microfone -->
+                <button id="call-btn-mute" onclick="toggleMute()" title="Silenciar Microfone" class="w-14 h-14 rounded-full bg-[#2b2d31] hover:bg-[#35373c] text-white flex items-center justify-center shadow-lg transition-colors">
+                    <svg id="call-icon-mic-on" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+                    <svg id="call-icon-mic-off" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/></svg>
+                </button>
+                <!-- Botão Desativar Áudio (Ensurdecer) -->
+                <button id="call-btn-deafen" onclick="toggleDeafen()" title="Desativar Áudio" class="w-14 h-14 rounded-full bg-[#2b2d31] hover:bg-[#35373c] text-white flex items-center justify-center shadow-lg transition-colors">
+                    <svg id="call-icon-deafen-off" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7a9 9 0 0 0-9-9z"/></svg>
+                    <svg id="call-icon-deafen-on" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7a9 9 0 0 0-9-9z"/><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
+                <!-- Botão Compartilhar Tela (Abre opções 720p / 1080p) -->
+                <button id="btn-share-screen" onclick="handleScreenShareClick()" title="Compartilhar Tela" class="w-14 h-14 rounded-full bg-[#2b2d31] hover:bg-[#35373c] text-white flex items-center justify-center shadow-lg transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/></svg>
+                </button>
+                <!-- Botão Desconectar -->
+                <button onclick="leaveVoiceChannel()" title="Desconectar" class="w-14 h-14 rounded-full bg-discord-red hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-colors">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 0 1-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL DE QUALIDADE DO COMPARTILHAMENTO DE TELA (720p vs 1080p) -->
+    <div id="modal-screen-quality" onclick="if(event.target === this) closeModal('modal-screen-quality')" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+        <div class="bg-[#313338] w-full max-w-md rounded-xl shadow-2xl p-6 animate-modal border border-discord-divider/50">
+            <h3 class="text-xl font-bold text-discord-textHeader mb-1">Compartilhamento de Tela</h3>
+            <p class="text-xs text-discord-textMuted mb-5">Escolha a resolução da transmissão antes de selecionar a tela.</p>
+            
+            <div class="space-y-3 mb-6">
+                <label class="flex items-center justify-between p-3.5 rounded-lg bg-[#2b2d31] border-2 border-discord-blurple cursor-pointer hover:bg-[#35373c] transition-colors" onclick="selectQualityOption('720p')">
+                    <div class="flex items-center gap-3">
+                        <input type="radio" name="screen-res" id="radio-720p" value="720p" checked class="accent-discord-blurple w-4 h-4">
+                        <div>
+                            <div class="font-bold text-discord-textHeader text-sm">720p HD (Padrão)</div>
+                            <div class="text-xs text-discord-textMuted">1280 × 720 • Fluido e leve para chamadas</div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-discord-green/20 text-discord-green">Recomendado</span>
+                </label>
+
+                <label class="flex items-center justify-between p-3.5 rounded-lg bg-[#2b2d31] border-2 border-transparent cursor-pointer hover:bg-[#35373c] transition-colors" onclick="selectQualityOption('1080p')">
+                    <div class="flex items-center gap-3">
+                        <input type="radio" name="screen-res" id="radio-1080p" value="1080p" class="accent-discord-blurple w-4 h-4">
+                        <div>
+                            <div class="font-bold text-discord-textHeader text-sm">1080p Full HD</div>
+                            <div class="text-xs text-discord-textMuted">1920 × 1080 • Máxima nitidez de texto e imagem</div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-discord-blurple/20 text-discord-blurple">Alta Qualidade</span>
+                </label>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeModal('modal-screen-quality')" class="px-4 py-2 text-sm text-discord-textNormal hover:underline">Cancelar</button>
+                <button type="button" onclick="confirmAndStartScreenShare()" class="bg-discord-blurple hover:bg-discord-blurpleHover text-white text-sm font-semibold px-6 py-2.5 rounded-md shadow-md transition-colors">Transmitir Agora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CRIAR SERVIDOR -->
+    <div id="modal-create-server" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-discord-chatBg w-full max-w-md rounded-lg shadow-2xl p-6 animate-modal border border-discord-divider/50">
+            <h3 class="text-2xl font-bold text-discord-textHeader mb-2 text-center">Crie um servidor</h3>
+            <form onsubmit="createServer(event)" class="space-y-4 mt-4">
+                <input id="input-server-name" type="text" required placeholder="Nome do Servidor" class="w-full bg-discord-guildBg text-discord-textHeader px-3 py-2.5 rounded-md text-sm focus:outline-none">
+                <div class="flex justify-between items-center pt-2">
+                    <button type="button" onclick="closeModal('modal-create-server')" class="text-sm text-discord-textNormal hover:underline">Cancelar</button>
+                    <button type="submit" class="bg-discord-blurple text-white text-sm font-medium px-6 py-2 rounded-md">Criar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CRIAR CANAL COM CATEGORIAS -->
+    <div id="modal-create-channel" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-discord-chatBg w-full max-w-md rounded-lg shadow-2xl p-6 animate-modal border border-discord-divider/50">
+            <h3 class="text-xl font-bold text-discord-textHeader mb-4">Criar Canal</h3>
+            <form onsubmit="createChannel(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">Tipo de Canal</label>
+                    <select id="select-channel-type" class="w-full bg-discord-guildBg text-discord-textHeader px-3 py-2 rounded-md text-sm">
+                        <option value="text">Texto (#)</option>
+                        <option value="voice">Voz (🔊)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">Categoria</label>
+                    <select id="select-channel-category" class="w-full bg-discord-guildBg text-discord-textHeader px-3 py-2 rounded-md text-sm">
+                        <option value="Canais de Texto">Canais de Texto</option>
+                        <option value="Canais de Voz">Canais de Voz</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-discord-textMuted mb-2">Nome do Canal</label>
+                    <input id="input-channel-name" type="text" required placeholder="novo-canal" class="w-full bg-discord-guildBg text-discord-textHeader px-3 py-2 rounded-md text-sm">
+                </div>
+                <div class="flex justify-between items-center pt-2">
+                    <button type="button" onclick="closeModal('modal-create-channel')" class="text-sm text-discord-textNormal hover:underline">Cancelar</button>
+                    <button type="submit" class="bg-discord-blurple text-white text-sm font-medium px-6 py-2 rounded-md">Criar Canal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE PERFIL -->
+    <div id="modal-user-profile" onclick="if(event.target === this) closeModal('modal-user-profile')" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+        <div class="bg-[#111214] w-[820px] max-w-full rounded-2xl shadow-2xl overflow-hidden flex animate-modal border border-discord-divider/40 text-discord-textNormal">
+            <div class="w-[340px] bg-[#111214] flex flex-col shrink-0 border-r border-discord-divider/30">
+                <div id="profile-modal-banner" onclick="event.stopPropagation(); triggerBannerUpload();" title="Clique para trocar o banner" class="h-28 bg-[#5865f2] relative cursor-pointer banner-hover-trigger bg-cover bg-center"></div>
+                <div class="px-5 pb-5 relative flex-1 flex flex-col">
+                    <div onclick="event.stopPropagation(); triggerAvatarUpload();" title="Clique para trocar foto" class="absolute -top-11 left-5 w-20 h-20 rounded-full p-1 bg-[#111214] shadow-xl cursor-pointer avatar-hover-trigger group z-20">
+                        <div id="profile-modal-avatar" class="w-full h-full rounded-full bg-discord-green flex items-center justify-center text-white font-bold text-2xl overflow-hidden relative">S</div>
+                    </div>
+                    <div class="mt-3 ml-auto bg-[#2b2d31] text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 text-discord-textHeader max-w-[200px] truncate shadow-sm">
+                        <span>💬</span> <span id="profile-status-msg" class="truncate">Online</span>
+                    </div>
+                    <div class="mt-3">
+                        <h2 id="profile-modal-name" class="text-xl font-bold text-discord-textHeader tracking-wide truncate">Usuário</h2>
+                        <div class="text-xs text-discord-textMuted flex items-center gap-1.5 mt-0.5">
+                            <span id="profile-modal-username">usuario</span> • <span id="profile-modal-tag" class="font-mono text-discord-blurple">U123456</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 my-5">
+                        <button onclick="closeModal('modal-user-profile')" class="flex-1 bg-discord-blurple hover:bg-discord-blurpleHover text-white text-xs font-semibold py-2.5 rounded-md flex items-center justify-center gap-1.5 shadow-md transition-colors">Fechar</button>
+                        <button onclick="handleLogout()" title="Sair da Conta" class="bg-discord-red/20 hover:bg-discord-red text-discord-red hover:text-white px-3 rounded-md flex items-center justify-center transition-colors">Sair</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-1 bg-[#313338] flex flex-col min-w-0 p-6">
+                <h3 class="text-lg font-bold text-discord-textHeader mb-4">Configurações de Perfil</h3>
+                <p class="text-sm text-discord-textMuted">Clique na sua foto ou banner na barra lateral ou à esquerda para alterá-los instantaneamente.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT COMPLETO E CORRIGIDO -->
+    <script>
+        let registeredUsers = JSON.parse(localStorage.getItem('discord_all_users')) || [];
+        const activeEmail = sessionStorage.getItem('discord_active_email');
+        let currentUser = registeredUsers.find(u => u.email === activeEmail) || null;
+
+        const state = {
+            isLoggedIn: sessionStorage.getItem('discord_logged_in') === 'true' && currentUser !== null,
+            user: currentUser || {
+                name: 'Usuário',
+                username: 'usuario',
+                email: '',
+                password: '',
+                tag: 'U' + Math.floor(Math.random() * 900000 + 100000),
+                color: '#23a55a',
+                avatarUrl: null,
+                bannerUrl: null,
+                isMuted: false,
+                isDeafened: false,
+                bio: 'Olá!',
+                statusMsg: 'Online'
+            },
+            friends: [],
+            dms: {},
+            servers: [],
+            activeServerId: null,
+            activeChannelId: null,
+            activeDMFriendId: null,
+            friendsTab: 'online',
+            activeVoice: { serverId: null, channelId: null, isPVCall: false, friendId: null },
+            screenStream: null,
+            selectedResolution: '720p'
+        };
+
+        if (state.isLoggedIn && currentUser) {
+            state.friends = JSON.parse(localStorage.getItem('discord_friends_' + currentUser.email)) || [];
+            state.dms = JSON.parse(localStorage.getItem('discord_dms_' + currentUser.email)) || {};
+            state.servers = JSON.parse(localStorage.getItem('discord_servers_' + currentUser.email)) || [];
+        }
+
+        function saveData() {
+            if (!state.user.email) return;
+            localStorage.setItem('discord_servers_' + state.user.email, JSON.stringify(state.servers));
+            localStorage.setItem('discord_friends_' + state.user.email, JSON.stringify(state.friends));
+            localStorage.setItem('discord_dms_' + state.user.email, JSON.stringify(state.dms));
+            
+            const index = registeredUsers.findIndex(u => u.email === state.user.email);
+            if (index !== -1) {
+                registeredUsers[index] = state.user;
+                localStorage.setItem('discord_all_users', JSON.stringify(registeredUsers));
+            }
+        }
+
+        function checkAuth() {
+            const authScreen = document.getElementById('auth-screen');
+            if (state.isLoggedIn) {
+                authScreen.classList.add('hidden');
+            } else {
+                authScreen.classList.remove('hidden');
+                switchAuthView('login');
+            }
+        }
+
+        function switchAuthView(view) {
+            const loginBox = document.getElementById('login-container');
+            const registerBox = document.getElementById('register-container');
+            if (view === 'register') {
+                loginBox.classList.add('hidden');
+                registerBox.classList.remove('hidden');
+            } else {
+                registerBox.classList.add('hidden');
+                loginBox.classList.remove('hidden');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const identifier = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            const foundUser = registeredUsers.find(u => u.email === identifier || u.username === identifier || u.tag === identifier);
+            
+            if (!foundUser || foundUser.password !== password) {
+                alert('Conta não encontrada ou senha incorreta!');
+                return;
+            }
+
+            sessionStorage.setItem('discord_logged_in', 'true');
+            sessionStorage.setItem('discord_active_email', foundUser.email);
+            
+            state.user = foundUser;
+            state.isLoggedIn = true;
+            state.friends = JSON.parse(localStorage.getItem('discord_friends_' + foundUser.email)) || [];
+            state.dms = JSON.parse(localStorage.getItem('discord_dms_' + foundUser.email)) || {};
+            state.servers = JSON.parse(localStorage.getItem('discord_servers_' + foundUser.email)) || [];
+
+            checkAuth();
+            renderAll();
+            updateAvatarUI();
+            updateBannerUI();
+            updateAudioControlsUI();
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const email = document.getElementById('reg-email').value.trim();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+            
+            if (!email || !username || !password) return;
+
+            if (registeredUsers.some(u => u.email === email)) {
+                alert('Este e-mail já está cadastrado! Faça login.');
+                switchAuthView('login');
+                return;
+            }
+
+            const newUser = {
+                name: username,
+                username: username,
+                email: email,
+                password: password,
+                tag: 'U' + Math.floor(Math.random() * 900000 + 100000),
+                color: '#23a55a',
+                avatarUrl: null,
+                bannerUrl: null,
+                isMuted: false,
+                isDeafened: false,
+                bio: 'Olá! Sou novo por aqui.',
+                statusMsg: 'Online'
+            };
+
+            registeredUsers.push(newUser);
+            localStorage.setItem('discord_all_users', JSON.stringify(registeredUsers));
+
+            sessionStorage.setItem('discord_logged_in', 'true');
+            sessionStorage.setItem('discord_active_email', email);
+
+            state.user = newUser;
+            state.isLoggedIn = true;
+            state.friends = [];
+            state.dms = {};
+            state.servers = [];
+
+            saveData();
+            checkAuth();
+            renderAll();
+            updateAvatarUI();
+            updateBannerUI();
+            updateAudioControlsUI();
+        }
+
+        function handleLogout() {
+            state.isLoggedIn = false;
+            sessionStorage.removeItem('discord_logged_in');
+            sessionStorage.removeItem('discord_active_email');
+            closeModal('modal-user-profile');
+            checkAuth();
+        }
+
+        function triggerAvatarUpload() { document.getElementById('global-avatar-input').click(); }
+        function triggerBannerUpload() { document.getElementById('global-banner-input').click(); }
+        
+        function handleGlobalAvatarUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    state.user.avatarUrl = evt.target.result;
+                    saveData();
+                    updateAvatarUI();
+                    renderAll();
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        }
+
+        function handleGlobalBannerUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    state.user.bannerUrl = evt.target.result;
+                    saveData();
+                    updateBannerUI();
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        }
+
+        function updateAvatarUI() {
+            const av = document.getElementById('user-avatar-sidebar');
+            if (av) {
+                if (state.user.avatarUrl) {
+                    av.innerHTML = `<img src="${state.user.avatarUrl}" class="w-full h-full object-cover rounded-full">`;
+                } else {
+                    av.textContent = state.user.name[0].toUpperCase();
+                }
+            }
+
+            const avModal = document.getElementById('profile-modal-avatar');
+            if (avModal) {
+                if (state.user.avatarUrl) {
+                    avModal.innerHTML = `<img src="${state.user.avatarUrl}" class="w-full h-full object-cover rounded-full">`;
+                } else {
+                    avModal.textContent = state.user.name[0].toUpperCase();
+                }
+            }
+            if (state.activeVoice.channelId || state.activeVoice.isPVCall) renderVoiceGrid();
+        }
+
+        function updateBannerUI() {
+            const banner = document.getElementById('profile-modal-banner');
+            if (banner) {
+                if (state.user.bannerUrl) {
+                    banner.style.backgroundImage = `url('${state.user.bannerUrl}')`;
+                    banner.style.backgroundColor = 'transparent';
+                } else {
+                    banner.style.backgroundImage = 'none';
+                    banner.style.backgroundColor = '#5865f2';
+                }
+            }
+        }
+
+        function openUserProfileModal() {
+            document.getElementById('profile-modal-name').textContent = state.user.name;
+            document.getElementById('profile-modal-username').textContent = state.user.username || state.user.name;
+            document.getElementById('profile-modal-tag').textContent = state.user.tag || 'U123456';
+            document.getElementById('profile-status-msg').textContent = state.user.statusMsg || 'Online';
+            updateAvatarUI();
+            updateBannerUI();
+            document.getElementById('modal-user-profile').classList.remove('hidden');
+        }
+
+        function openEditProfileModal() { openUserProfileModal(); }
+
+        function selectHome() {
+            state.activeServerId = null; state.activeChannelId = null; state.activeDMFriendId = null;
+            renderAll();
+        }
+
+        function selectServer(id) {
+            state.activeServerId = id; state.activeDMFriendId = null;
+            const srv = state.servers.find(s => s.id === id);
+            if (srv && srv.channels.length > 0) state.activeChannelId = srv.channels[0].id;
+            renderAll();
+        }
+
+        function selectChannel(id) {
+            state.activeChannelId = id;
+            const srv = state.servers.find(s => s.id === state.activeServerId);
+            const ch = srv?.channels.find(c => c.id === id);
+            if (ch && ch.type === 'voice') {
+                connectVoiceChannel(srv.id, ch.id);
+            } else {
+                renderAll();
+            }
+        }
+
+        function openDM(friendId) {
+            state.activeServerId = null; state.activeChannelId = null; state.activeDMFriendId = friendId;
+            renderAll();
+        }
+
+        function setFriendsTab(tab) {
+            state.activeDMFriendId = null; state.friendsTab = tab;
+            renderAll();
+        }
+
+        function handleAddFriendSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('input-add-friend-name');
+            const query = input.value.trim();
+            if (!query) return;
+
+            registeredUsers = JSON.parse(localStorage.getItem('discord_all_users')) || [];
+            const targetUser = registeredUsers.find(u => u.tag === query || u.username === query);
+
+            if (!targetUser) {
+                alert('Usuário não encontrado!');
+                return;
+            }
+            if (targetUser.email === state.user.email) {
+                alert('Você não pode adicionar a si mesmo!');
+                return;
+            }
+            if (state.friends.some(f => f.email === targetUser.email)) {
+                alert('Este usuário já está na sua lista de amigos!');
+                return;
+            }
+
+            const newFriend = {
+                id: 'friend_' + Date.now(),
+                name: targetUser.name,
+                username: targetUser.username,
+                tag: targetUser.tag,
+                email: targetUser.email,
+                avatarUrl: targetUser.avatarUrl || null,
+                color: '#5865f2'
+            };
+
+            state.friends.push(newFriend);
+            if (!state.dms[newFriend.email]) {
+                state.dms[newFriend.email] = [{ authorId: newFriend.email, text: 'Olá! Agora somos amigos no chat.', time: 'Hoje' }];
+            }
+
+            saveData();
+            input.value = '';
+            setFriendsTab('online');
+        }
+
+        function removeFriend(friendId, event) {
+            if (event) event.stopPropagation();
+            if (!confirm('Deseja realmente remover este amigo?')) return;
+            state.friends = state.friends.filter(f => f.id !== friendId);
+            if (state.activeDMFriendId === friendId) state.activeDMFriendId = null;
+            saveData();
+            renderAll();
+        }
+
+        function connectVoiceChannel(serverId, channelId) {
+            state.activeVoice = { serverId, channelId, isPVCall: false, friendId: null };
+            state.activeServerId = serverId;
+            state.activeChannelId = channelId;
+            document.getElementById('voice-status-panel').classList.remove('hidden');
+            const srv = state.servers.find(s => s.id === serverId);
+            const ch = srv?.channels.find(c => c.id === channelId);
+            document.getElementById('voice-connected-channel-name').textContent = ch ? `${ch.name} / ${srv.name}` : 'Voz';
+            renderAll();
+        }
+
+        function startPrivateCall(friendId) {
+            const fid = friendId || state.activeDMFriendId;
+            if (!fid) return;
+            const friend = state.friends.find(f => f.id === fid);
+            state.activeServerId = null;
+            state.activeChannelId = null;
+            state.activeVoice = { serverId: null, channelId: null, isPVCall: true, friendId: fid };
+            document.getElementById('voice-status-panel').classList.remove('hidden');
+            document.getElementById('voice-connected-channel-name').textContent = friend ? `Call PV • ${friend.name}` : 'Call PV';
+            renderAll();
+        }
+
+        function leaveVoiceChannel() {
+            const wasServerId = state.activeVoice.serverId;
+            const wasChannelId = state.activeVoice.channelId;
+            stopScreenShare();
+            state.activeVoice = { serverId: null, channelId: null, isPVCall: false, friendId: null };
+            document.getElementById('voice-status-panel').classList.add('hidden');
+
+            if (wasServerId && state.activeServerId === wasServerId && state.activeChannelId === wasChannelId) {
+                const srv = state.servers.find(s => s.id === wasServerId);
+                const textCh = srv?.channels.find(c => c.type === 'text');
+                if (textCh) state.activeChannelId = textCh.id;
+                else state.activeChannelId = null;
+            }
+            renderAll();
+        }
+
+        function handleScreenShareClick() {
+            if (state.screenStream) {
+                stopScreenShare();
+            } else {
+                selectQualityOption('720p');
+                document.getElementById('modal-screen-quality').classList.remove('hidden');
+            }
+        }
+
+        function selectQualityOption(res) {
+            state.selectedResolution = res;
+            document.getElementById('radio-720p').checked = (res === '720p');
+            document.getElementById('radio-1080p').checked = (res === '1080p');
+        }
+
+        function stopScreenShare() {
+            const btn = document.getElementById('btn-share-screen');
+            if (state.screenStream) {
+                state.screenStream.getTracks().forEach(track => track.stop());
+                state.screenStream = null;
+            }
+            if (btn) {
+                btn.classList.remove('bg-discord-green', 'hover:bg-emerald-600');
+                btn.classList.add('bg-[#2b2d31]', 'hover:bg-[#35373c]');
+            }
+            renderVoiceGrid();
+        }
+
+        async function confirmAndStartScreenShare() {
+            closeModal('modal-screen-quality');
+            const btn = document.getElementById('btn-share-screen');
+            const is1080p = state.selectedResolution === '1080p';
+            const videoConstraints = is1080p
+                ? { width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 }, frameRate: { ideal: 60 } }
+                : { width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 30 } };
+
+            try {
+                state.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: videoConstraints, audio: true });
+                btn.classList.remove('bg-[#2b2d31]', 'hover:bg-[#35373c]');
+                btn.classList.add('bg-discord-green', 'hover:bg-emerald-600');
+                renderVoiceGrid();
+                state.screenStream.getVideoTracks()[0].onended = () => { stopScreenShare(); };
+            } catch (err) {
+                console.log('Compartilhamento cancelado:', err);
+            }
+        }
+
+        function toggleFullscreenVideo() {
+            const container = document.getElementById('screen-share-container');
+            if (!container) return;
+            if (!document.fullscreenElement) container.requestFullscreen().catch(err => console.log(err));
+            else document.exitFullscreen();
+        }
+
+        function updateAudioControlsUI() {
+            const isMuted = !!state.user.isMuted;
+            const isDeafened = !!state.user.isDeafened;
+
+            document.getElementById('icon-mic-on')?.classList.toggle('hidden', isMuted);
+            document.getElementById('icon-mic-off')?.classList.toggle('hidden', !isMuted);
+            document.getElementById('icon-deafen-off')?.classList.toggle('hidden', isDeafened);
+            document.getElementById('icon-deafen-on')?.classList.toggle('hidden', !isDeafened);
+
+            const callBtnMute = document.getElementById('call-btn-mute');
+            document.getElementById('call-icon-mic-on')?.classList.toggle('hidden', isMuted);
+            document.getElementById('call-icon-mic-off')?.classList.toggle('hidden', !isMuted);
+            if (callBtnMute) {
+                callBtnMute.classList.toggle('bg-discord-red', isMuted);
+                callBtnMute.classList.toggle('bg-[#2b2d31]', !isMuted);
+            }
+
+            const callBtnDeafen = document.getElementById('call-btn-deafen');
+            document.getElementById('call-icon-deafen-off')?.classList.toggle('hidden', isDeafened);
+            document.getElementById('call-icon-deafen-on')?.classList.toggle('hidden', !isDeafened);
+            if (callBtnDeafen) {
+                callBtnDeafen.classList.toggle('bg-discord-red', isDeafened);
+                callBtnDeafen.classList.toggle('bg-[#2b2d31]', !isDeafened);
+            }
+
+            if (state.screenStream) {
+                state.screenStream.getAudioTracks().forEach(track => { track.enabled = !isMuted && !isDeafened; });
+            }
+
+            const statusText = document.getElementById('user-status-text');
+            if (statusText) {
+                if (isDeafened) statusText.textContent = 'Áudio Desativado';
+                else if (isMuted) statusText.textContent = 'Microfone Mutado';
+                else statusText.textContent = state.user.statusMsg || 'Online';
+            }
+
+            if (state.activeVoice.channelId || state.activeVoice.isPVCall) renderVoiceGrid();
+        }
+
+        function toggleMute() {
+            state.user.isMuted = !state.user.isMuted;
+            if (!state.user.isMuted && state.user.isDeafened) state.user.isDeafened = false;
+            saveData();
+            updateAudioControlsUI();
+        }
+
+        function toggleDeafen() {
+            state.user.isDeafened = !state.user.isDeafened;
+            state.user.isMuted = state.user.isDeafened;
+            saveData();
+            updateAudioControlsUI();
+        }
+
+        function createServer(e) {
+            e.preventDefault();
+            const name = document.getElementById('input-server-name').value.trim();
+            if (!name) return;
+            const newServer = {
+                id: 'srv_' + Date.now(),
+                name: name,
+                initials: name.substring(0, 3).toUpperCase(),
+                channels: [
+                    { id: 'ch_t_' + Date.now(), name: 'geral', type: 'text', category: 'Canais de Texto', messages: [] },
+                    { id: 'ch_v_' + Date.now(), name: 'Voz 1', type: 'voice', category: 'Canais de Voz' }
+                ]
+            };
+            state.servers.push(newServer);
+            saveData();
+            closeModal('modal-create-server');
+            selectServer(newServer.id);
+        }
+
+        function openCreateServerModal() { document.getElementById('modal-create-server').classList.remove('hidden'); }
+        function openCreateChannelModal() { document.getElementById('modal-create-channel').classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function createChannel(e) {
+            e.preventDefault();
+            const name = document.getElementById('input-channel-name').value.trim();
+            const type = document.getElementById('select-channel-type').value;
+            const category = document.getElementById('select-channel-category').value;
+            if (!name || !state.activeServerId) return;
+            const srv = state.servers.find(s => s.id === state.activeServerId);
+            srv.channels.push({ id: 'ch_' + Date.now(), name, type, category, messages: [] });
+            saveData();
+            closeModal('modal-create-channel');
+            renderAll();
+        }
+
+        function deleteChannel(chId, event) {
+            event.stopPropagation();
+            if (!confirm('Deseja apagar este canal?')) return;
+            const srv = state.servers.find(s => s.id === state.activeServerId);
+            srv.channels = srv.channels.filter(c => c.id !== chId);
+            if (state.activeChannelId === chId) state.activeChannelId = srv.channels[0]?.id || null;
+            if (state.activeVoice.channelId === chId) leaveVoiceChannel();
+            saveData();
+            renderAll();
+        }
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            const srv = state.servers.find(s => s.id === state.activeServerId);
+            const ch = srv?.channels.find(c => c.id === state.activeChannelId);
+            if (!ch) return;
+            if (!ch.messages) ch.messages = [];
+            ch.messages.push({ author: state.user.name, avatarUrl: state.user.avatarUrl, text });
+            saveData();
+            input.value = '';
+            renderAll();
+        }
+
+        function sendDirectMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('dm-message-input');
+            const text = input.value.trim();
+            if (!text || !state.activeDMFriendId) return;
+            const friend = state.friends.find(f => f.id === state.activeDMFriendId);
+            if (!friend) return;
+            const dmKey = friend.email;
+            if (!state.dms[dmKey]) state.dms[dmKey] = [];
+            state.dms[dmKey].push({ authorId: 'user', text: text, time: 'Hoje' });
+            saveData();
+            input.value = '';
+            renderAll();
+        }
+
+        function renderVoiceGrid() {
+            const grid = document.getElementById('voice-grid');
+            let userAvatarContent = state.user.avatarUrl 
+                ? `<img src="${state.user.avatarUrl}" class="w-full h-full object-cover rounded-full">` 
+                : `<span class="text-white text-4xl font-bold">${state.user.name[0].toUpperCase()}</span>`;
+            
+            if (state.screenStream) {
+                grid.innerHTML = `
+                    <div id="screen-share-container" class="w-full h-full bg-black rounded-xl flex items-center justify-center shadow-2xl border border-discord-divider/40 relative overflow-hidden group">
+                        <video id="local-screen-video" autoplay playsinline muted class="w-full h-full object-contain"></video>
+                        <div class="absolute top-3 left-3 flex items-center gap-2 z-10">
+                            <span class="bg-discord-red text-white text-[11px] font-bold uppercase px-2.5 py-1 rounded shadow tracking-wider flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> AO VIVO • ${state.selectedResolution}
+                            </span>
+                        </div>
+                        <div class="absolute bottom-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <button onclick="stopScreenShare()" class="bg-discord-red hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-md shadow-lg">Parar Transmissão</button>
+                            <button onclick="toggleFullscreenVideo()" title="Tela Cheia" class="bg-black/75 hover:bg-black text-white p-2 rounded-md shadow-lg">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                const videoEl = document.getElementById('local-screen-video');
+                if (videoEl) videoEl.srcObject = state.screenStream;
+            } else {
+                const isMuted = !!state.user.isMuted;
+                const ringClass = isMuted ? 'ring-2 ring-discord-red/70' : 'speaking-ring';
+                grid.innerHTML = `
+                    <div class="w-full max-w-2xl aspect-video bg-[#2b2d31] rounded-2xl flex flex-col items-center justify-center shadow-2xl border border-discord-divider/30 relative overflow-hidden">
+                        <div class="w-28 h-28 rounded-full bg-discord-green flex items-center justify-center overflow-hidden shadow-lg ${ringClass}">${userAvatarContent}</div>
+                        <span class="mt-4 text-discord-textHeader font-semibold text-base bg-black/40 px-3 py-1 rounded-md">${state.user.name}</span>
+                    </div>
+                `;
+            }
+        }
+
+        function renderAll() {
+            document.getElementById('user-name-sidebar').textContent = state.user.name;
+            const sList = document.getElementById('servers-list');
+            sList.innerHTML = '';
+            state.servers.forEach(s => {
+                const active = state.activeServerId === s.id;
+                sList.innerHTML += `<div onclick="selectServer('${s.id}')" class="guild-item ${active ? 'active' : ''} relative w-full flex items-center justify-center cursor-pointer group"><div class="guild-pill absolute left-0 w-1 bg-white rounded-r-full h-0 opacity-0"></div><div class="guild-icon w-12 h-12 flex items-center justify-center text-white font-bold bg-discord-blurple">${s.initials}</div></div>`;
+            });
+            document.getElementById('home-btn').classList.toggle('active', state.activeServerId === null);
+
+            const titleEl = document.getElementById('sidebar-title');
+            const contentEl = document.getElementById('sidebar-content');
+            const actions = document.getElementById('sidebar-header-actions');
+
+            if (!state.activeServerId) {
+                titleEl.textContent = 'Início';
+                actions.classList.add('hidden');
+                let html = `<div onclick="setFriendsTab('online')" class="px-3 py-2 rounded-md cursor-pointer text-sm font-semibold text-discord-textHeader bg-discord-active">Amigos</div><div class="pt-3"><div class="px-2 mb-1 text-xs font-bold text-discord-textMuted uppercase">Mensagens Diretas</div>`;
+                state.friends.forEach(f => {
+                    html += `<div onclick="openDM('${f.id}')" class="px-2 py-2 rounded-md cursor-pointer text-sm text-discord-textNormal hover:bg-discord-hover flex items-center justify-between"><span>${f.name}</span><span class="text-[10px] text-discord-textMuted font-mono">${f.tag}</span></div>`;
+                });
+                contentEl.innerHTML = html + `</div>`;
+            } else {
+                const srv = state.servers.find(s => s.id === state.activeServerId);
+                titleEl.textContent = srv.name;
+                actions.classList.remove('hidden');
+
+                const categories = ['Canais de Texto', 'Canais de Voz'];
+                let html = `<div class="space-y-3">`;
+                categories.forEach(cat => {
+                    const catChannels = (srv.channels || []).filter(c => (c.category || (c.type === 'text' ? 'Canais de Texto' : 'Canais de Voz')) === cat);
+                    if (catChannels.length > 0) {
+                        html += `
+                            <div>
+                                <div class="text-[11px] font-bold uppercase text-discord-textMuted tracking-wider mb-1 px-1">▼ ${cat}</div>
+                                <div class="space-y-0.5">
+                        `;
+                        catChannels.forEach(ch => {
+                            const active = state.activeChannelId === ch.id;
+                            html += `
+                                <div onclick="selectChannel('${ch.id}')" class="group/ch flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm ${active ? 'bg-discord-active text-discord-textHeader' : 'text-discord-textMuted hover:bg-discord-hover'}">
+                                    <span>${ch.type === 'text' ? '#' : '🔊'} ${ch.name}</span>
+                                    <button onclick="deleteChannel('${ch.id}', event)" class="opacity-0 group-hover/ch:opacity-100 text-discord-textMuted hover:text-discord-red p-1">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        html += `</div></div>`;
+                    }
+                });
+                contentEl.innerHTML = html + `</div>`;
+            }
+
+            document.getElementById('view-friends-center').classList.add('hidden');
+            document.getElementById('view-dm-chat').classList.add('hidden');
+            document.getElementById('view-text-channel').classList.add('hidden');
+            document.getElementById('view-voice-channel').classList.add('hidden');
+            document.getElementById('friends-header-nav').classList.add('hidden');
+            document.getElementById('dm-header-actions').classList.add('hidden');
+
+            if (!state.activeServerId) {
+                if (state.activeVoice.isPVCall) {
+                    document.getElementById('view-voice-channel').classList.remove('hidden');
+                    renderVoiceGrid();
+                } else if (state.activeDMFriendId) {
+                    document.getElementById('dm-header-actions').classList.remove('hidden');
+                    document.getElementById('view-dm-chat').classList.remove('hidden');
+                    const friend = state.friends.find(f => f.id === state.activeDMFriendId);
+                    const container = document.getElementById('dm-messages-container');
+                    container.innerHTML = `<div class="pb-4 border-b border-discord-divider/50 mb-4 flex items-center justify-between"><h3 class="text-2xl font-bold text-discord-textHeader">${friend ? friend.name : 'Chat'}</h3><button onclick="startPrivateCall('${friend?.id}')" class="bg-discord-green text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Iniciar Call PV</button></div>`;
+                    
+                    (state.dms[friend?.email] || []).forEach(m => {
+                        container.innerHTML += `<div class="py-1"><span class="font-semibold text-sm text-discord-textHeader">${m.authorId === 'user' ? state.user.name : friend.name}:</span> <span class="text-sm text-discord-textNormal">${m.text}</span></div>`;
+                    });
+                    container.scrollTop = container.scrollHeight;
+                } else {
+                    document.getElementById('friends-header-nav').classList.remove('hidden');
+                    document.getElementById('view-friends-center').classList.remove('hidden');
+                    document.getElementById('section-add-friend').classList.toggle('hidden', state.friendsTab !== 'add');
+
+                    const fc = document.getElementById('friends-list-container');
+                    fc.innerHTML = '';
+                    document.getElementById('friends-list-header').textContent = `AMIGOS — ${state.friends.length}`;
+
+                    state.friends.forEach(f => {
+                        fc.innerHTML += `
+                            <div class="flex items-center justify-between p-2.5 rounded-lg hover:bg-discord-hover transition-colors border-b border-discord-divider/20">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-discord-blurple flex items-center justify-center font-bold text-white">${f.name[0].toUpperCase()}</div>
+                                    <div><div class="font-semibold text-discord-textHeader text-sm">${f.name}</div><div class="text-xs text-discord-textMuted">Online</div></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="openDM('${f.id}')" class="p-2 rounded-full bg-[#2b2d31] hover:bg-discord-active text-discord-textNormal">💬</button>
+                                    <button onclick="startPrivateCall('${f.id}')" class="p-2 rounded-full bg-[#2b2d31] hover:bg-discord-active text-discord-green">🔊</button>
+                                    <button onclick="removeFriend('${f.id}', event)" class="p-2 rounded-full bg-[#2b2d31] hover:bg-discord-active text-discord-red">❌</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } else {
+                const srv = state.servers.find(s => s.id === state.activeServerId);
+                const ch = srv?.channels.find(c => c.id === state.activeChannelId);
+                if (ch) {
+                    if (ch.type === 'text') {
+                        document.getElementById('view-text-channel').classList.remove('hidden');
+                        const mc = document.getElementById('messages-container');
+                        mc.innerHTML = `<div class="pb-2 border-b border-discord-divider"><h3 class="text-xl font-bold text-discord-textHeader">#${ch.name}</h3></div>`;
+                        (ch.messages || []).forEach(m => {
+                            mc.innerHTML += `<div class="py-1"><span class="font-semibold text-discord-textHeader text-sm">${m.author}:</span> <span class="text-sm text-discord-textNormal">${m.text}</span></div>`;
+                        });
+                        mc.scrollTop = mc.scrollHeight;
+                    } else {
+                        document.getElementById('view-voice-channel').classList.remove('hidden');
+                        renderVoiceGrid();
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            if (state.isLoggedIn) {
+                renderAll();
+                updateAvatarUI();
+                updateBannerUI();
+                updateAudioControlsUI();
+            }
+        });
+    </script>
+</body>
+</html>
